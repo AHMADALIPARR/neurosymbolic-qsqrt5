@@ -1,0 +1,71 @@
+.comment("EOC")
+SPDX-License-Identifier: LicenseRef-NON-AI-MPL-2.0
+Copyright (C) 2026 SnapKitty Collective
+
+qsqrt5-nn.kg -- Galois-equivariant array neural network over Z[sqrt(5)].
+
+Exact bignum pair arithmetic for Q(sqrt(5)), rank-polymorphic dense layers,
+zero explicit loops. Dimensional evaluation only: the forward pass reduces
+rank through the layers, one operator adapting to the shape it meets.
+
+The Lean axioms are runtime invariants, verified below:
+  galConj involutive, galConj homomorphism (+,*), norm multiplicative.
+The network is Galois-equivariant: fwd(sigma(X)) = sigma(fwd(X)).
+EOC
+
+:"Q(sqrt(5)) element ops -- [a b] = a+b*sqrt(5), exact integers"
+qadd::{((x@0)+(y@0)),((x@1)+(y@1))}
+qmul::{(((x@0)*(y@0))+(5*((x@1)*(y@1)))),(((x@0)*(y@1))+((x@1)*(y@0)))}
+qconj::{((x@0),(-(x@1)))}
+qnorm::{(((x@0)^2)-(5*((x@1)^2)))}
+qtrace::{(2*(x@0))}
+
+:"inner product -- fold qadd over pairwise qmul, no loops"
+qdot::{qadd/(x qmul'y)}
+
+:"Galois-gated activation -- norm sign, exact, conjugation-invariant"
+qact::{:[~((qnorm(x))<0);x;[0 0]]}
+
+:"single-vector forward -- x=[W b] params, y=nx2 input"
+qfv::{[W;b];W::(x@0);b::(x@1);qact'(((y qdot:/W) qadd'b))}
+
+:"RANK-POLYMORPHIC forward -- one operator, behavior from shape"
+"rank 2 (nx2): single pass | rank 3 (mxnx2): batch map"
+qfwd::{:[3=(#^y);x qfwd:\y;qfv(x;y)]}
+
+:"---- Lean axiom invariants, checked on live values ----"
+A::[[3 2] [1 4] [2 0]]
+CA::(qconj'A)
+.p(("involution",((qconj'CA)=A)))
+.p(("hom add",((qconj'(A qadd'A))=((CA) qadd'(CA)))))
+.p(("hom mul",((qconj'(A qmul'A))=((CA) qmul'(CA)))))
+.p(("norm mul",((qnorm'(A qmul'A))=((qnorm'A)*(qnorm'A)))))
+
+:"---- demo network: 3 -> 2 -> 1, exact ----"
+W1::[[[1 0] [0 1] [1 1]] [[2 0] [1 0] [0 1]]]
+b1::[[0 0] [0 0]]
+W2::[[[1 1] [2 0]]]
+b2::[[0 0]]
+X::[[3 2] [1 0] [0 1]]
+H::(qfwd(((,W1),(,b1));X))
+.p(("hidden",H))
+Y::(qfwd(((,W2),(,b2));H))
+.p(("output",Y))
+
+:"---- batch: same operator, rank 3 in ----"
+XB::[[[3 2] [1 0] [0 1]] [[1 1] [2 0] [1 2]]]
+HB::(qfwd(((,W1),(,b1));XB))
+.p(("batch hidden rank",(#^HB)))
+YB::(qfwd(((,W2),(,b2));HB))
+.p(("batch out",YB))
+
+:"---- Galois symmetry: fwd(sP;sX) = s(fwd(P;X)) ----"
+"conjugating params+input conjugates output (Lean hom axioms, lifted)"
+sW1::(qconj''W1)
+sb1::(qconj'b1)
+sX::(qconj'X)
+.p(("symmetry",((qfwd(((,sW1),(,sb1));sX))=(qconj'(qfwd(((,W1),(,b1));X))))))
+sW2::(qconj''W2)
+sb2::(qconj'b2)
+sHB::(qconj''HB)
+.p(("batch symmetry",((qfwd(((,sW2),(,sb2));sHB))=(qconj''(qfwd(((,W2),(,b2));HB))))))

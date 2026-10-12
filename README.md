@@ -18,6 +18,7 @@ with **Galois conjugation**, in Clojure. The neural layer proposes
 | `src/qsqrt5/bridge.clj` | `snap` (float → exact or nil), `verify`, `certify-op` |
 | `test/qsqrt5/` | 18 tests, 4375 assertions — **green on Clojure 1.12.0 / JDK 21** |
 | `lean/QSqrt5.lean` | Lean 4 mirror over Z[√5] — **machine-checked, `lake build` green, zero `sorry`** |
+| `klong/qsqrt5-nn.kg` | Klong array neural net — rank-polymorphic `qfwd`, Galois-gated, zero loops |
 | `doc/neurosymbolic.org` | Design notes with ob-lean4-executable blocks |
 
 ## The math
