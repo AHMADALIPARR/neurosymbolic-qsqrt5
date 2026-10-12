@@ -1,5 +1,5 @@
-;; Copyright (C) 2026 Ahmad Ali Parr
-;; SPDX-License-Identifier: AGPL-3.0-only
+;; Copyright (C) 2026 SnapKitty Collective
+;; SPDX-License-Identifier: LicenseRef-NON-AI-MPL-2.0
 (ns qsqrt5.bridge
   "Neurosymbolic bridge: the interface between the neural layer
    (floats, approximations, proposals) and the symbolic layer

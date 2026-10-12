@@ -1,6 +1,6 @@
 <!--
-  Copyright (C) 2026 Ahmad Ali Parr
-  SPDX-License-Identifier: AGPL-3.0-only
+  Copyright (C) 2026 SnapKitty Collective
+  SPDX-License-Identifier: LicenseRef-NON-AI-MPL-2.0
 -->
 
 # neurosymbolic-qsqrt5
@@ -48,4 +48,5 @@ the deliverable.)
 
 ## License
 
-AGPL-3.0-only.
+NON-AI Mozilla Public License 2.0 (`LicenseRef-NON-AI-MPL-2.0`) —
+strong copyleft, no commercial license offered. See `LICENSE`.

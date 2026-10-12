@@ -1,5 +1,7 @@
 #+TITLE: Neurosymbolic Q(√5) — symbolic layer design notes
-#+AUTHOR: Ahmad Ali Parr
+#+AUTHOR: SnapKitty Collective
+# Copyright (C) 2026 SnapKitty Collective
+# SPDX-License-Identifier: LicenseRef-NON-AI-MPL-2.0
 
 * Symbolic layer: exact arithmetic over Q(√5)
 

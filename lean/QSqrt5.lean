@@ -1,6 +1,6 @@
 /-
-  Copyright (C) 2026 Ahmad Ali Parr
-  SPDX-License-Identifier: AGPL-3.0-only
+  Copyright (C) 2026 SnapKitty Collective
+  SPDX-License-Identifier: LicenseRef-NON-AI-MPL-2.0
 
   QSqrt5.lean — Lean 4 mirror of the qsqrt5 Clojure symbolic layer.
 
