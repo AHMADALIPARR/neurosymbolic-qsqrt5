@@ -1,71 +1,80 @@
-/-
-  Copyright (C) 2026 SnapKitty Collective
-  SPDX-License-Identifier: LicenseRef-NON-AI-MPL-2.0
+-- Copyright (C) 2026 SnapKitty Collective
+-- SPDX-License-Identifier: LicenseRef-NON-AI-MPL-2.0
+-- Galois theory of Z[√5], machine-checked.
+--
+-- We work over Z[√5] (integer pairs), not Q(√5). All six theorems are
+-- polynomial identities, so they hold identically over Q(√5); the Clojure
+-- layer (`src/qsqrt5/`) uses rationals, the Klong network
+-- (`~/workspace/klong-nn/qsqrt5-nn.kg`) uses integer pairs. Z[√5] ↪ Q(√5).
+--
+-- Lean 4.34 core lacks `ring`; the `grind` tactic closes the nonlinear
+-- identities. Zero `sorry`.
 
-  QSqrt5.lean — Lean 4 mirror of the qsqrt5 Clojure symbolic layer.
-
-  STATUS: machine-checked. `lake build` passes with zero `sorry`.
-  Definitions mirror src/qsqrt5/{core,galois}.clj; every theorem below
-  is proved from the definitions by the lemmas that follow.
--/
-
--- Q(√5) as pairs of rationals. Mirrors qsqrt5.core/q5.
+/-- An element a + b√5, stored as the pair (a, b). -/
 structure QSqrt5 where
-  a : Rat
-  b : Rat
+  a : Int
+  b : Int
 deriving Repr, DecidableEq
 
 namespace QSqrt5
 
--- Mirrors qsqrt5.core/qadd, qsqrt5.core/qmul
+/-- Addition: (a+b√5)+(c+d√5) = (a+c)+(b+d)√5. -/
 def add (x y : QSqrt5) : QSqrt5 := ⟨x.a + y.a, x.b + y.b⟩
+
+/-- Multiplication: uses (b√5)(d√5) = 5bd. -/
 def mul (x y : QSqrt5) : QSqrt5 :=
   ⟨x.a * y.a + 5 * x.b * y.b, x.a * y.b + x.b * y.a⟩
+
+/-- Negation. -/
 def neg (x : QSqrt5) : QSqrt5 := ⟨-x.a, -x.b⟩
 
-/-- Component-wise extensionality: the workhorse lemma. Every proof
-    below reduces element equalities to `Rat` identities via `ext`,
-    then closes them with `ring`. -/
+/-- Component-wise extensionality: the workhorse. -/
 @[ext] theorem ext {x y : QSqrt5} (ha : x.a = y.a) (hb : x.b = y.b) :
     x = y := by
   cases x; cases y; simp_all
 
--- Mirrors qsqrt5.galois/conjugate : the nontrivial Galois automorphism.
+/-- The nontrivial Galois automorphism: √5 ↦ -√5. -/
 def galConj (x : QSqrt5) : QSqrt5 := ⟨x.a, -x.b⟩
 
--- Mirrors qsqrt5.core/norm and qsqrt5.galois/trace
-def norm (x : QSqrt5) : Rat := x.a ^ 2 - 5 * x.b ^ 2
-def trace (x : QSqrt5) : Rat := 2 * x.a
+/-- Norm: N(a+b√5) = a²-5b². -/
+def norm (x : QSqrt5) : Int := x.a * x.a - 5 * x.b * x.b
 
--- The statements mirror the property tests in test/qsqrt5/galois_test.clj.
+/-- Trace: Tr(a+b√5) = 2a. -/
+def trace (x : QSqrt5) : Int := 2 * x.a
 
+/-- σ is an involution. -/
 theorem galConj_involutive (x : QSqrt5) : galConj (galConj x) = x := by
   obtain ⟨a, b⟩ := x
-  ext <;> simp only [galConj]
+  apply QSqrt5.ext <;> simp [galConj]
 
+/-- σ respects addition. -/
 theorem galConj_add (x y : QSqrt5) :
     galConj (add x y) = add (galConj x) (galConj y) := by
   obtain ⟨a1, b1⟩ := x; obtain ⟨a2, b2⟩ := y
-  ext <;> simp only [galConj, add] <;> ring
+  apply QSqrt5.ext <;> simp [galConj, add] <;> grind
 
+/-- σ respects multiplication. -/
 theorem galConj_mul (x y : QSqrt5) :
     galConj (mul x y) = mul (galConj x) (galConj y) := by
   obtain ⟨a1, b1⟩ := x; obtain ⟨a2, b2⟩ := y
-  ext <;> simp only [galConj, mul] <;> ring
+  apply QSqrt5.ext <;> simp [galConj, mul] <;> grind
 
+/-- The norm is multiplicative. -/
 theorem norm_mul (x y : QSqrt5) : norm (mul x y) = norm x * norm y := by
   obtain ⟨a1, b1⟩ := x; obtain ⟨a2, b2⟩ := y
-  simp only [norm, mul]; ring
+  simp [norm, mul]; grind
 
+/-- x·σ(x) = N(x) in the base ring. -/
 theorem mul_galConj_eq_norm (x : QSqrt5) :
     mul x (galConj x) = ⟨norm x, 0⟩ := by
   obtain ⟨a, b⟩ := x
-  ext <;> simp only [mul, galConj, norm] <;> ring
+  apply QSqrt5.ext <;> simp [mul, galConj, norm] <;> grind
 
+/-- Every element satisfies x² - Tr(x)·x + N(x) = 0. -/
 theorem satisfies_min_poly (x : QSqrt5) :
     add (add (mul x x) (neg ⟨trace x * x.a, trace x * x.b⟩)) ⟨norm x, 0⟩
       = ⟨0, 0⟩ := by
   obtain ⟨a, b⟩ := x
-  ext <;> simp only [add, mul, neg, trace, norm] <;> ring
+  apply QSqrt5.ext <;> simp [add, mul, neg, trace, norm] <;> grind
 
 end QSqrt5

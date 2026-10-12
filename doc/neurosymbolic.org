@@ -1,29 +1,142 @@
-#+TITLE: Neurosymbolic Q(√5) — symbolic layer design notes
+#+TITLE: Neurosymbolic Q(√5) — symbolic layer
 #+AUTHOR: SnapKitty Collective
+#+PROPERTY: header-args:lean :session qsqrt5 :results output :exports both
 # Copyright (C) 2026 SnapKitty Collective
 # SPDX-License-Identifier: LicenseRef-NON-AI-MPL-2.0
 
-* Symbolic layer: exact arithmetic over Q(√5)
+* Symbolic layer: exact arithmetic over Z[√5]
 
 The symbolic layer of the neurosymbolic stack. Exact field arithmetic
 in Clojure (~src/qsqrt5/core.clj~), Galois conjugation in
 ~src/qsqrt5/galois.clj~, and the neural↔symbolic bridge in
-~src/qsqrt5/bridge.clj~. All 18 clojure.test suites green (4375 assertions).
+~src/qsqrt5/bridge.clj~. All 18 clojure.test suites green (4375 assertions);
+~lean/QSqrt5.lean~ is machine-checked via ~lake build~ with zero ~sorry~.
 
-* Lean 4 mirror (execute via ob-lean4)
+The Lean side works over Z[√5] (integer pairs): all six theorems are
+polynomial identities, so they hold identically over Q(√5). Lean 4.34
+core lacks ~ring~ and Rat algebra; Int has the needed lemmas, closed
+by the ~grind~ tactic.
 
-The file ~lean/QSqrt5.lean~ mirrors the Clojure definitions. Evaluate
-the blocks below in Emacs with ob-lean4 loaded (~SNAPKITTYWEST/ob-lean~).
+What follows is that Lean module, integrated as executable =ob-lean4=
+blocks. Every block below runs: they share one ~:session~, so each
+recompiles the earlier blocks in front of it. Evaluate top to bottom.
 
-#+begin_src lean :results output
-  structure QSqrt5 where
-    a : Rat
-    b : Rat
+* The type
+
+Z[√5] as pairs of integers — mirrors ~qsqrt5.core/q5~ restricted to
+integral coefficients. An element a + b√5 is ~(a, b)~ with ~a b : Int~.
+
+#+begin_src lean
+structure QSqrt5 where
+  a : Int
+  b : Int
+deriving Repr, DecidableEq
+
+namespace QSqrt5
 #+end_src
 
-#+begin_src lean :results output
-  def galConj (x : QSqrt5) : QSqrt5 := ⟨x.a, -x.b⟩
-  #eval galConj ⟨3, 2⟩   -- expected: ⟨3, -2⟩
+* Ring operations
+
+Addition and multiplication follow the ring laws directly. Note the
+~5 * x.b * y.b~ term: that is (b√5)(d√5) = 5bd, the whole reason this
+is a ring and not just pairs.
+
+#+begin_src lean
+def add (x y : QSqrt5) : QSqrt5 := ⟨x.a + y.a, x.b + y.b⟩
+def mul (x y : QSqrt5) : QSqrt5 :=
+  ⟨x.a * y.a + 5 * x.b * y.b, x.a * y.b + x.b * y.a⟩
+def neg (x : QSqrt5) : QSqrt5 := ⟨-x.a, -x.b⟩
+#+end_src
+
+* The workhorse lemma
+
+Every theorem below reduces an element equality to ~Int~ identities
+via component-wise extensionality, then closes them with ~grind~.
+One lemma carries all six proofs.
+
+#+begin_src lean
+@[ext] theorem ext {x y : QSqrt5} (ha : x.a = y.a) (hb : x.b = y.b) :
+    x = y := by
+  cases x; cases y; simp_all
+#+end_src
+
+* Galois conjugation
+
+Gal(Q(√5)/Q) ≅ C₂. The nontrivial automorphism σ sends √5 ↦ −√5.
+Norm and trace fall out: N(x) = x·σ(x), Tr(x) = x + σ(x).
+
+#+begin_src lean
+def galConj (x : QSqrt5) : QSqrt5 := ⟨x.a, -x.b⟩
+
+def norm (x : QSqrt5) : Int := x.a * x.a - 5 * x.b * x.b
+def trace (x : QSqrt5) : Int := 2 * x.a
+#+end_src
+
+* Theorems
+
+**σ is an involution.** Applying conjugation twice returns the element.
+
+#+begin_src lean
+theorem galConj_involutive (x : QSqrt5) : galConj (galConj x) = x := by
+  obtain ⟨a, b⟩ := x
+  apply QSqrt5.ext <;> simp [galConj]
+#+end_src
+
+**σ is a ring homomorphism.** It respects addition and multiplication —
+this is what makes it a Galois automorphism rather than just a map.
+
+#+begin_src lean
+theorem galConj_add (x y : QSqrt5) :
+    galConj (add x y) = add (galConj x) (galConj y) := by
+  obtain ⟨a1, b1⟩ := x; obtain ⟨a2, b2⟩ := y
+  apply QSqrt5.ext <;> simp [galConj, add] <;> grind
+
+theorem galConj_mul (x y : QSqrt5) :
+    galConj (mul x y) = mul (galConj x) (galConj y) := by
+  obtain ⟨a1, b1⟩ := x; obtain ⟨a2, b2⟩ := y
+  apply QSqrt5.ext <;> simp [galConj, mul] <;> grind
+#+end_src
+
+**The norm is multiplicative.** N(xy) = N(x)N(y) — the property the
+Clojure side uses to invert via the norm.
+
+#+begin_src lean
+theorem norm_mul (x y : QSqrt5) : norm (mul x y) = norm x * norm y := by
+  obtain ⟨a1, b1⟩ := x; obtain ⟨a2, b2⟩ := y
+  simp [norm, mul]; grind
+#+end_src
+
+**x·σ(x) is the norm.** The product of an element with its conjugate
+lands in the base ring Z (second component zero).
+
+#+begin_src lean
+theorem mul_galConj_eq_norm (x : QSqrt5) :
+    mul x (galConj x) = ⟨norm x, 0⟩ := by
+  obtain ⟨a, b⟩ := x
+  apply QSqrt5.ext <;> simp [mul, galConj, norm] <;> grind
+#+end_src
+
+**Every element satisfies its minimal polynomial.** x² − Tr(x)x + N(x) = 0,
+computed exactly.
+
+#+begin_src lean
+theorem satisfies_min_poly (x : QSqrt5) :
+    add (add (mul x x) (neg ⟨trace x * x.a, trace x * x.b⟩)) ⟨norm x, 0⟩
+      = ⟨0, 0⟩ := by
+  obtain ⟨a, b⟩ := x
+  apply QSqrt5.ext <;> simp [add, mul, neg, trace, norm] <;> grind
+
+end QSqrt5
+#+end_src
+
+* Evaluations
+
+Concrete computations through the verified definitions.
+
+#+begin_src lean
+#eval QSqrt5.galConj ⟨3, 2⟩        -- ⟨3, -2⟩
+#eval QSqrt5.norm ⟨3, 2⟩            -- 9 - 20 = -11
+#eval QSqrt5.mul ⟨1, 1⟩ ⟨2, -1⟩     -- (1+√5)(2-√5) = -3+√5
 #+end_src
 
 * Bridge contract
@@ -39,4 +152,6 @@ the blocks below in Emacs with ob-lean4 loaded (~SNAPKITTYWEST/ob-lean~).
 
 This is the *symbolic layer*: exact math the neural layer can be
 checked against. It does not train, does not approximate, and does
-not depend on any external service.
+not depend on any external service. Canonical source for the Lean
+side is ~lean/QSqrt5.lean~ (proved over Z[√5], ~lake build~ green);
+the blocks above mirror it for interactive =ob-lean4= execution.
