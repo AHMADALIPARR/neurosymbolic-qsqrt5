@@ -1,0 +1,40 @@
+#+TITLE: Neurosymbolic Q(√5) — symbolic layer design notes
+#+AUTHOR: Ahmad Ali Parr
+
+* Symbolic layer: exact arithmetic over Q(√5)
+
+The symbolic layer of the neurosymbolic stack. Exact field arithmetic
+in Clojure (~src/qsqrt5/core.clj~), Galois conjugation in
+~src/qsqrt5/galois.clj~, and the neural↔symbolic bridge in
+~src/qsqrt5/bridge.clj~. All 18 clojure.test suites green (4375 assertions).
+
+* Lean 4 mirror (execute via ob-lean4)
+
+The file ~lean/QSqrt5.lean~ mirrors the Clojure definitions. Evaluate
+the blocks below in Emacs with ob-lean4 loaded (~SNAPKITTYWEST/ob-lean~).
+
+#+begin_src lean :results output
+  structure QSqrt5 where
+    a : Rat
+    b : Rat
+#+end_src
+
+#+begin_src lean :results output
+  def galConj (x : QSqrt5) : QSqrt5 := ⟨x.a, -x.b⟩
+  #eval galConj ⟨3, 2⟩   -- expected: ⟨3, -2⟩
+#+end_src
+
+* Bridge contract
+
+- Neural proposes (doubles). ~qsqrt5.bridge/snap~ recognizes an exact
+  a+b√5 with small coefficients or refuses (nil). No silent coercion.
+- Symbolic disposes (exact). ~qsqrt5.bridge/verify~ certifies a neural
+  float against the exact value within tolerance.
+- ~to-double~ is the single inexact function in the symbolic layer,
+  quarantined in ~qsqrt5.core~ so exactness elsewhere is auditable.
+
+* Sovereign compute role
+
+This is the *symbolic layer*: exact math the neural layer can be
+checked against. It does not train, does not approximate, and does
+not depend on any external service.
